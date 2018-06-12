@@ -1,52 +1,53 @@
-var express = require("express");
-var app = express();
-var bodyParser = require("body-parser");
-
-
-
+var express     = require("express"),
+    app         = express(),
+    bodyParser  = require("body-parser"),
+    mongoose    = require("mongoose"),
+    flash       = require("connect-flash")
+    passport    = require("passport"),
+    LocalStrategy = require("passport-local"),
+    methodOverride = require("method-override"),
+    Campground  = require("./models/campground"),
+    Comment     = require("./models/comment"),
+    User        = require("./models/user"),
+    seedDB      = require("./seeds")
+    
+//requiring routes
+var commentRoutes    = require("./routes/comments"),
+    campgroundRoutes = require("./routes/campgrounds"),
+    indexRoutes      = require("./routes/index")
+    
+mongoose.connect("mongodb://localhost/yelp_camp_v10");
 app.use(bodyParser.urlencoded({extended: true}));
-//this helps in not necesary declaring .ejs to all file
-app.set("view engine", "ejs")
+app.set("view engine", "ejs");
+app.use(express.static(__dirname + "/public"));
+app.use(methodOverride("_method"));
+app.use(flash());
+// seedDB(); //seed the database
 
+// PASSPORT CONFIGURATION
+app.use(require("express-session")({
+    secret: "Once again Rusty wins cutest dog!",
+    resave: false,
+    saveUninitialized: false
+}));
+app.use(passport.initialize());
+app.use(passport.session());
+passport.use(new LocalStrategy(User.authenticate()));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
 
-var campgrounds =[
-		{name: "Salmon Creek", image:"https://pixabay.com/get/eb35b70b2df6033ed1584d05fb1d4e97e07ee3d21cac104497f8c07aa1e8bdbd_340.jpg"},
-		{name: "Yomite", image:"https://pixabay.com/get/ec31b90f2af61c22d2524518b7444795ea76e5d004b014439df1c27fa2e5b0_340.jpg"},
-		{name: "Granite Hills", image:"https://pixabay.com/get/e83db7082af3043ed1584d05fb1d4e97e07ee3d21cac104497f8c07aa1e8bdbd_340.jpg"}
-	];
-
-//landing page template
-app.get("/", function(req, res){
-	res.render("landing");
+app.use(function(req, res, next){
+   res.locals.currentUser = req.user;
+   res.locals.error = req.flash("error");
+   res.locals.success = req.flash("success");
+   next();
 });
 
-app.get("/campgrounds", function(req, res){
-	res.render("campgrounds", {campgrounds:campgrounds});
-
-});
-
-
-app.post("/campgrounds", function(req, res){
-	//get data from form and add to campground array
-	var name = req.body.name;
-	var image = req.body.image;
-	var newCampground ={name:name, image:image}
-	campgrounds.push(newCampground);
-
-	//redirect back to campground page
-	res.redirect("/campgrounds");
-});
-
-
-app.get("/campgrounds/new", function(req, res){
-	res.render("new.ejs");
-});
-
-
-
-
+app.use("/", indexRoutes);
+app.use("/campgrounds", campgroundRoutes);
+app.use("/campgrounds/:id/comments", commentRoutes);
 
 
 app.listen(3000, function(){
-	console.log("Yelpcamp server on!!")
+   console.log("The YelpCamp Server Has Started!");
 });
